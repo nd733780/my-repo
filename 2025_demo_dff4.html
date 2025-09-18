@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DFF 模擬器</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            background-color: #1a1a1a;
+            color: #e0e0e0;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        h1 { font-size: 3em; margin-bottom: 20px; }
+
+        .main-container {
+            display: flex;
+            gap: 40px;
+            width: 90%;
+            height: 80vh;
+            max-width: 1400px;
+            background-color: #2a2a2a;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .code-area { flex: 1; display: flex; flex-direction: column; }
+        .code-area h2 { font-size: 2em; margin-bottom: 10px; }
+        #verilog-code {
+            flex-grow: 1;
+            background-color: #1e1e1e;
+            color: #d4d4d4;
+            border: 2px solid #555;
+            border-radius: 8px;
+            padding: 15px;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 1.2em;
+            resize: none;
+            outline: none;
+        }
+
+        .demo-area {
+            flex: 1; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; position: relative;
+        }
+        .dff-container { position: relative; width: 600px; height: 400px; }
+        .dff-block {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 300px; height: 250px;
+            background-color: #444; border: 3px solid #666;
+            border-radius: 10px; display: flex; align-items: center; justify-content: center;
+            font-size: 4em; font-weight: bold;
+        }
+        .dff-block::before {
+            content: "FF"; position: absolute; color: #888;
+            opacity: 0.3; font-size: 2em; font-weight: bold;
+        }
+
+        .terminal { position: absolute; display: flex; align-items: center; gap: 10px; font-size: 1.8em; font-weight: bold; }
+        .terminal .label { color: #e0e0e0; }
+        .terminal .indicator {
+            width: 20px; height: 20px; border-radius: 50%; border: 2px solid #e0e0e0;
+            transition: background-color 0.1s;
+        }
+
+        #D-terminal { top: 10%; left: 10%; }
+        #Q-terminal { top: 10%; left: 90%; transform: translateX(-100%); flex-direction: row-reverse; }
+        #clk-terminal { bottom: 10%; left: 50%; transform: translateX(-50%); }
+        #rst-terminal { bottom: 10%; left: 10%; }
+
+        @keyframes ledPulse {
+            0% { box-shadow: 0 0 5px #0ff, 0 0 10px #0ff; }
+            50% { box-shadow: 0 0 20px #0ff, 0 0 40px #0ff; }
+            100% { box-shadow: 0 0 5px #0ff, 0 0 10px #0ff; }
+        }
+        .pulse { animation: ledPulse 0.5s infinite; }
+        @keyframes fadeInOut { 0% { opacity: 0.2; } 100% { opacity: 1; } }
+        .fade-in-out { animation: fadeInOut 0.5s ease-in-out; }
+
+        .controls { display: flex; gap: 20px; margin-top: 20px; align-items: center; flex-wrap: wrap; }
+        .controls label, .controls input, .controls select { font-size: 1.2em; }
+        .controls input[type="number"], .controls select {
+            background-color: #333; color: #eee; border: 1px solid #555;
+            padding: 5px; border-radius: 5px;
+        }
+        button {
+            padding: 10px 20px; font-size: 1.2em; cursor: pointer; border: none;
+            border-radius: 8px; color: white; transition: background-color 0.3s;
+        }
+        #start-btn { background-color: #27ae60; }
+        #start-btn:hover { background-color: #229954; }
+        #stop-btn { background-color: #e74c3c; }
+        #stop-btn:hover { background-color: #c0392b; }
+        #reset-btn { background-color: #f39c12; }
+        #reset-btn:hover { background-color: #d35400; }
+
+        .value-display { font-size: 1.5em; font-weight: bold; color: #fff; margin-left: 10px; }
+        .status-display { margin-top: 15px; font-size: 1.1em; color: #ccc; text-align: center; }
+    </style>
+</head>
+<body>
+    <h1>DFF 互動模擬器</h1>
+    <div class="main-container">
+        <div class="code-area">
+            <h2>Verilog 程式碼</h2>
+            <textarea id="verilog-code" readonly>module D_ff(
+    input clk, rst, D,
+    output reg Q
+);
+    always @ (posedge clk or posedge rst) begin
+        if (rst) Q <= 0; // 重置
+        else Q <= D; // 鎖存D端數據
+    end
+endmodule</textarea>
+        </div>
+
+        <div class="demo-area">
+            <div class="dff-container">
+                <div class="dff-block"></div>
+
+                <div id="D-terminal" class="terminal">
+                    <span class="label">D</span>
+                    <div class="indicator"></div>
+                    <span class="value-display" id="D-value">0</span>
+                </div>
+                
+                <div id="Q-terminal" class="terminal">
+                    <div class="indicator" id="Q-led"></div>
+                    <span class="label">Q</span>
+                    <span class="value-display" id="Q-value">0</span>
+                </div>
+                
+                <div id="clk-terminal" class="terminal">
+                    <span class="label">clk</span>
+                    <div class="indicator"></div>
+                </div>
+                
+                <div id="rst-terminal" class="terminal">
+                    <span class="label">rst</span>
+                    <div class="indicator"></div>
+                </div>
+            </div>
+            
+            <div class="controls">
+                <label for="clk-period">clk 週期 (ms):</label>
+                <input type="number" id="clk-period" value="600" min="100">
+
+                <label for="status-select">Q 狀態:</label>
+                <select id="status-select">
+                    <option value="std" selected>std</option>
+                    <option value="meta-stable">meta-stable</option>
+                    <option value="setup">setup</option>
+                    <option value="hold">hold</option>
+                </select>
+
+                <label for="delay-select">Delay:</label>
+                <select id="delay-select">
+                    <option value="0" selected>0</option>
+                    <option value="1">1</option>
+                    <option value="5">5</option>
+                </select>
+
+                <button id="start-btn">Start</button>
+                <button id="stop-btn">Stop</button>
+                <button id="reset-btn">Reset</button>
+            </div>
+
+            <div class="status-display" id="status-display"></div>
+        </div>
+    </div>
+
+<script>
+    const clkPeriodInput = document.getElementById('clk-period');
+    const statusSelect = document.getElementById('status-select');
+    const delaySelect = document.getElementById('delay-select');
+    const startBtn = document.getElementById('start-btn');
+    const stopBtn = document.getElementById('stop-btn');
+    const resetBtn = document.getElementById('reset-btn');
+    const statusDisplay = document.getElementById('status-display');
+
+    const clkIndicator = document.querySelector('#clk-terminal .indicator');
+    const rstIndicator = document.querySelector('#rst-terminal .indicator');
+    const DIndicator = document.querySelector('#D-terminal .indicator');
+    const QIndicator = document.querySelector('#Q-terminal .indicator');
+    const DValueDisplay = document.getElementById('D-value');
+    const QValueDisplay = document.getElementById('Q-value');
+    const dffBlock = document.querySelector('.dff-block');
+
+    let simulationInterval;
+    let glitchInterval;
+    let isRunning = false;
+    let D_state = 0;
+    let Q_state = 0;
+    let delayCycles = 0;
+    let delayQueue = [];
+
+    const colors = {
+        '0': '#c0392b',
+        '1': '#27ae60',
+        'meta-stable': '#e67e22',
+        'violation': '#e67e22' // 違例狀態使用同一種顏色
+    };
+
+    function updateTerminal(indicator, value, status = 'std') {
+        let color = colors[value];
+        if (status === 'meta-stable' || status === 'violation') {
+            color = colors['violation'];
+        }
+        indicator.style.backgroundColor = color;
+        indicator.classList.remove('fade-in-out');
+        void indicator.offsetWidth;
+        if (value === 1) indicator.classList.add('fade-in-out');
+    }
+
+    function updateStatusText(text, color = '#ccc') {
+        statusDisplay.textContent = text;
+        statusDisplay.style.color = color;
+    }
+
+    function simulateClock() {
+        clkIndicator.style.backgroundColor = '#0ff';
+        clkIndicator.classList.add('pulse');
+
+        const currentMode = statusSelect.value;
+        const period = parseInt(clkPeriodInput.value);
+        let D_next = 1 - D_state;
+
+        if (currentMode === 'setup' || currentMode === 'hold') {
+            updateStatusText('⚠️ Violation Mode Active!', '#f39c12');
+            
+            // 隨機決定最終進入的狀態
+            const finalQ = Math.random() > 0.5 ? D_next : 1 - D_next;
+
+            const updateViolationQ = (value) => {
+                Q_state = value;
+                updateTerminal(QIndicator, Q_state, 'violation');
+                QValueDisplay.textContent = `${Q_state}🙊`;
+                dffBlock.textContent = `${Q_state}🙊`;
+                setTimeout(() => {
+                    // 一小段時間後，恢復正常顯示
+                    updateTerminal(QIndicator, Q_state);
+                    QValueDisplay.textContent = Q_state;
+                    dffBlock.textContent = Q_state;
+                    updateStatusText('Violation resolved.', '#ccc');
+                }, 150 + Math.random() * 200);
+            };
+
+            if (currentMode === 'setup') {
+                // 在 clock 上升沿前改變 D
+                setTimeout(() => {
+                    D_state = D_next;
+                    updateTerminal(DIndicator, D_state);
+                    DValueDisplay.textContent = D_state;
+                    updateViolationQ(finalQ);
+                }, period / 2 - 50); // 假設 setup time 是 50ms
+            } else if (currentMode === 'hold') {
+                // 在 clock 上升沿後改變 D
+                setTimeout(() => {
+                    D_state = D_next;
+                    updateTerminal(DIndicator, D_state);
+                    DValueDisplay.textContent = D_state;
+                    updateViolationQ(finalQ);
+                }, period / 2 + 50); // 假設 hold time 是 50ms
+            }
+            
+        } else { // 正常模式 (std 或 meta-stable)
+            updateStatusText('Normal operation.', '#ccc');
+            // 正常時鐘邏輯
+            delayQueue.push(D_state);
+
+            if (delayQueue.length > delayCycles) {
+                const delayedValue = delayQueue.shift();
+                if (Q_state !== delayedValue) {
+                    Q_state = delayedValue;
+                    updateTerminal(QIndicator, Q_state);
+                    QValueDisplay.textContent = Q_state;
+                    dffBlock.textContent = Q_state;
+                }
+            }
+            D_state = D_next;
+            updateTerminal(DIndicator, D_state);
+            DValueDisplay.textContent = D_state;
+        }
+
+        setTimeout(() => {
+            clkIndicator.style.backgroundColor = 'transparent';
+            clkIndicator.classList.remove('pulse');
+        }, period / 2);
+    }
+
+    function startGlitch(period) {
+        if (glitchInterval) clearInterval(glitchInterval);
+        glitchInterval = setInterval(() => {
+            if (!isRunning || statusSelect.value !== 'meta-stable') return;
+            
+            const glitchVal = Math.random() < 0.5 ? 0 : 1;
+            QIndicator.style.backgroundColor = colors['meta-stable'];
+            QValueDisplay.textContent = '?';
+            dffBlock.textContent = '?';
+            updateStatusText('⚠️ Metastability! Output is unstable.', '#f39c12');
+
+            setTimeout(() => {
+                updateTerminal(QIndicator, Q_state);
+                QValueDisplay.textContent = Q_state;
+                dffBlock.textContent = Q_state;
+                updateStatusText('Normal operation.', '#ccc');
+            }, 150 + Math.random() * 200);
+        }, period * 1.5);
+    }
+
+    function startSimulation() {
+        if (isRunning) return;
+        isRunning = true;
+        
+        const period = parseInt(clkPeriodInput.value);
+        if (isNaN(period) || period < 100) {
+            alert('請輸入有效的時脈週期 (至少 100ms)');
+            isRunning = false;
+            return;
+        }
+
+        delayCycles = parseInt(delaySelect.value);
+
+        D_state = 0;
+        Q_state = 0;
+        delayQueue = [];
+        updateTerminal(DIndicator, D_state);
+        DValueDisplay.textContent = D_state;
+        updateTerminal(QIndicator, Q_state);
+        QValueDisplay.textContent = Q_state;
+        dffBlock.textContent = Q_state;
+
+        simulationInterval = setInterval(simulateClock, period);
+
+        if (statusSelect.value === 'meta-stable') {
+            startGlitch(period);
+        } else {
+            stopGlitch();
+        }
+    }
+
+    function stopGlitch() {
+        if (glitchInterval) {
+            clearInterval(glitchInterval);
+            glitchInterval = null;
+        }
+    }
+
+    function stopSimulation() {
+        if (!isRunning) return;
+        isRunning = false;
+        clearInterval(simulationInterval);
+        stopGlitch();
+        clkIndicator.style.backgroundColor = 'transparent';
+        clkIndicator.classList.remove('pulse');
+        updateStatusText('Simulation stopped.', '#999');
+    }
+
+    function resetSimulation() {
+        stopSimulation();
+        Q_state = 0;
+        D_state = 0;
+        delayQueue = [];
+        updateTerminal(QIndicator, Q_state);
+        QValueDisplay.textContent = Q_state;
+        dffBlock.textContent = Q_state;
+        updateTerminal(DIndicator, D_state);
+        DValueDisplay.textContent = D_state;
+        rstIndicator.style.backgroundColor = '#f39c12';
+        updateStatusText('Resetting...', '#f39c12');
+        setTimeout(() => {
+            rstIndicator.style.backgroundColor = 'transparent';
+            updateStatusText('Simulation reset. Ready to start.', '#ccc');
+        }, 500);
+    }
+
+    startBtn.addEventListener('click', startSimulation);
+    stopBtn.addEventListener('click', stopSimulation);
+    resetBtn.addEventListener('click', resetSimulation);
+    statusSelect.addEventListener('change', () => {
+        if (isRunning) {
+            stopSimulation();
+            updateStatusText('Simulation mode changed. Please restart.', '#fff');
+        }
+    });
+    delaySelect.addEventListener('change', () => {
+        if (isRunning) {
+            stopSimulation();
+            updateStatusText('Delay changed. Please restart.', '#fff');
+        }
+    });
+
+    resetSimulation();
+</script>
+</body>
+</html>

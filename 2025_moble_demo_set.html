@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>圓盤時脈遊戲 - 手機版</title>
+    <style>
+        /* 基本樣式 - 適用於所有設備 */
+        html, body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f0f0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            min-height: 100vh;
+            margin: 0;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+
+        .container {
+            text-align: center;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 20px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 600px;
+            box-sizing: border-box;
+        }
+
+        h1 {
+            font-size: 2em; /* 調整為手機友善的標題字體大小 */
+            margin-bottom: 10px;
+        }
+
+        .intro-p {
+            font-size: 1.2em; /* 調整為手機友善的說明字體大小 */
+            margin: 5px 0;
+        }
+
+        /* 時鐘容器樣式 */
+        #clock-container {
+            position: relative;
+            width: 300px; /* 縮小時鐘尺寸以適應手機螢幕 */
+            height: 300px;
+            border-radius: 50%;
+            border: 5px solid #333; /* 調整邊框粗細 */
+            margin: 20px auto;
+            background: conic-gradient(
+                #ecf0f1 0% 25%,
+                #e74c3c 25% 31.25%,
+                #ffb6c1 31.25% 41.67%,
+                #f1c40f 41.67% 75%,
+                #ecf0f1 75% 100%
+            );
+        }
+
+        #clock-hand {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 3px; /* 調整指針粗細 */
+            height: 150px; /* 調整指針長度 */
+            background-color: black;
+            transform-origin: 50% 100%;
+            transform: translate(-50%, -100%) rotate(0deg);
+            transition: transform linear;
+        }
+
+        #cycle-count {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 5em; /* 調整圈數顯示的字體大小 */
+            font-weight: bold;
+            color: #555;
+            z-index: 10;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+        }
+
+        /* 控制區樣式 */
+        #controls {
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap; /* 讓按鈕在小螢幕上可以換行 */
+        }
+
+        button {
+            padding: 15px 30px; /* 調整按鈕大小，方便點擊 */
+            font-size: 1.2em; /* 調整按鈕文字大小 */
+            cursor: pointer;
+            border: none;
+            border-radius: 8px;
+            color: white;
+            transition: background-color 0.3s;
+            width: calc(50% - 5px); /* 讓按鈕在兩列佈局時更寬 */
+            max-width: 200px;
+        }
+
+        button:enabled {
+            background-color: #3498db;
+        }
+
+        button:hover:enabled {
+            background-color: #2980b9;
+        }
+
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        #delay-slider {
+            width: 80%;
+            max-width: 300px;
+            height: 10px;
+            margin-top: 10px;
+        }
+
+        /* 結果日誌區塊樣式 */
+        h2 {
+            font-size: 1.5em;
+            margin-top: 20px;
+            text-align: center;
+            color: #333;
+        }
+
+        #result-log-wrapper {
+            max-height: 250px; /* 限制高度，使其可滾動 */
+            overflow-y: auto;
+            margin-top: 10px;
+            margin-bottom: 20px;
+            width: 100%;
+            max-width: 600px;
+            padding: 10px;
+            border: 2px solid #ccc;
+            border-radius: 10px;
+            background-color: #f9f9f9;
+            box-sizing: border-box;
+        }
+
+        .result-block {
+            padding: 10px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            background-color: #ffffff;
+            margin-bottom: 10px;
+        }
+
+        .result-block p {
+            font-size: 1.2em;
+            margin: 0;
+            line-height: 1.5;
+            font-weight: bold;
+        }
+
+        .result-block p:first-child {
+            font-size: 0.9em;
+            margin-bottom: 5px;
+        }
+
+        /* 動畫效果 - 保持與原版一致 */
+        @keyframes gentleShake {
+            0% { transform: rotate(0deg); }
+            25% { transform: rotate(-0.5deg); }
+            50% { transform: rotate(0.5deg); }
+            75% { transform: rotate(-0.5deg); }
+            100% { transform: rotate(0deg); }
+        }
+        .shaking { animation: gentleShake 0.2s ease-in-out 1; }
+
+        @keyframes textShake {
+            0% { transform: translate(-50%, -50%) rotate(0deg); }
+            25% { transform: translate(-50%, -50%) rotate(-0.5deg); }
+            50% { transform: translate(-50%, -50%) rotate(0.5deg); }
+            75% { transform: translate(-50%, -50%) rotate(-0.5deg); }
+            100% { transform: translate(-50%, -50%) rotate(0deg); }
+        }
+        .text-shaking { animation: textShake 0.2s ease-in-out 1; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>時脈同步互動遊戲 - 手機版</h1>
+        <p class="intro-p">按下「Start」啟動指針，再按一次「Stop」來抓取指針所在的顏色區，或使用滑桿調整指針位置並按「Dump」記錄結果。</p>
+        <div id="clock-container">
+            <div id="clock-hand"></div>
+            <div id="cycle-count">0</div>
+        </div>
+        <div id="controls">
+            <div class="button-group">
+                <button id="start-btn">Start</button>
+                <button id="dump-btn">Dump</button>
+                <button id="std-io-btn">Std_IO</button>
+                <button id="export-btn" disabled>匯出</button>
+            </div>
+            <input type="range" id="delay-slider" min="0" max="5" step="0.01" value="0">
+        </div>
+    </div>
+    <h2>即時結果</h2>
+    <div id="result-log-wrapper">
+        <div id="result-log"></div>
+    </div>
+    <script>
+        // JavaScript 程式碼部分與您提供的原版相同，無需改動，
+        // 因為其邏輯不依賴於螢幕尺寸，可以直接沿用。
+        const startBtn = document.getElementById('start-btn');
+        const dumpBtn = document.getElementById('dump-btn');
+        const stdIoBtn = document.getElementById('std-io-btn');
+        const exportBtn = document.getElementById('export-btn');
+        const delaySlider = document.getElementById('delay-slider');
+        const clockContainer = document.getElementById('clock-container');
+        const clockHand = document.getElementById('clock-hand');
+        const cycleCountDisplay = document.getElementById('cycle-count');
+        const resultLog = document.getElementById('result-log');
+        const duration = 600;
+        let timerId;
+        let startTime;
+        let isRunning = false;
+        let totalElapsedTime = 0;
+        let results = [];
+        let lastDegrees = 0;
+        let cycleCounter = 0;
+
+        function animateHand() {
+            const now = Date.now();
+            totalElapsedTime = now - startTime;
+            const currentCycleTime = totalElapsedTime % duration;
+            const degrees = (currentCycleTime / duration) * 360;
+            const totalDegrees = (totalElapsedTime / duration) * 360;
+            cycleCounter = Math.floor(totalDegrees / 360);
+            clockHand.style.transform = `translate(-50%, -100%) rotate(${degrees}deg)`;
+            cycleCountDisplay.textContent = cycleCounter;
+            delaySlider.value = (totalElapsedTime / duration) * (5 / (2159 / 360));
+            if (lastDegrees > 300 && degrees < 60) {
+                if (isRunning) {
+                    clockContainer.classList.add('shaking');
+                    cycleCountDisplay.classList.add('text-shaking');
+                }
+            }
+            lastDegrees = degrees;
+            timerId = requestAnimationFrame(animateHand);
+        }
+
+        clockContainer.addEventListener('animationend', () => {
+            clockContainer.classList.remove('shaking');
+        });
+
+        cycleCountDisplay.addEventListener('animationend', () => {
+            cycleCountDisplay.classList.remove('text-shaking');
+        });
+
+        function startClock() {
+            isRunning = true;
+            startTime = Date.now();
+            startBtn.textContent = 'Stop';
+            cycleCounter = 0;
+            cycleCountDisplay.textContent = cycleCounter;
+            delaySlider.disabled = true;
+            animateHand();
+        }
+
+        function stopClock(shouldStopAnimation = true) {
+            if (shouldStopAnimation) {
+                cancelAnimationFrame(timerId);
+                isRunning = false;
+                startBtn.textContent = 'Start';
+                delaySlider.disabled = false;
+            }
+            let currentCycleTime;
+            let currentDegrees;
+            if (isRunning) {
+                const stopTime = Date.now();
+                totalElapsedTime = stopTime - startTime;
+                currentCycleTime = totalElapsedTime % duration;
+                currentDegrees = (currentCycleTime / duration) * 360;
+                cycleCounter = Math.floor((totalElapsedTime / duration) * 360 / 360);
+            } else {
+                const delay = parseFloat(delaySlider.value);
+                const totalDegrees = (delay / 5) * 2159;
+                currentDegrees = totalDegrees % 360;
+                currentCycleTime = (currentDegrees / 360) * duration;
+                cycleCounter = Math.floor(totalDegrees / 360);
+            }
+            cycleCountDisplay.textContent = cycleCounter;
+            
+            let area;
+            let stage;
+            if (currentCycleTime >= 0 && currentCycleTime < 150) {
+                area = '白色區域';
+                stage = 'Meta-stable';
+            } else if (currentCycleTime >= 150 && currentCycleTime < 187.5) {
+                area = '紅色區域';
+                stage = 'Setup';
+            } else if (currentCycleTime >= 187.5 && currentCycleTime < 250) {
+                area = '粉色區域';
+                stage = '標準';
+            } else if (currentCycleTime >= 250 && currentCycleTime < 450) {
+                area = '黃色區域';
+                stage = 'Hold';
+            } else {
+                area = '白色區域';
+                stage = 'Meta-stable';
+            }
+            const lostEdges = cycleCounter;
+            const lostEdgesText = `你錯過了 ${lostEdges} 次正緣喔`;
+            
+            results.push({ stage: stage, lostEdges: lostEdges });
+            const resultBlock = document.createElement('div');
+            resultBlock.className = 'result-block';
+            resultBlock.innerHTML = `
+                <p><b>第 ${results.length} 次嘗試:</b></p>
+                <p>你抓到了 ${area}，${stage}，${lostEdgesText}</p>
+            `;
+            
+            if (resultLog.firstChild) {
+                resultLog.insertBefore(resultBlock, resultLog.firstChild);
+            } else {
+                resultLog.appendChild(resultBlock);
+            }
+            if (results.length >= 4) {
+                exportBtn.disabled = false;
+            }
+        }
+
+        function exportDynamicResults() {
+            stopClock(true);
+            const content = results.map(r => `${r.stage},${r.lostEdges}`).join('\n');
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'results.txt';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function exportFixedResults() {
+            stopClock(true);
+            const content = `Hold,2\nHold,4\nSetup,1\nSetup,3`;
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'results.txt';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        startBtn.addEventListener('click', () => {
+            if (isRunning) {
+                stopClock(true);
+            } else {
+                startClock();
+            }
+        });
+
+        dumpBtn.addEventListener('click', () => {
+            stopClock(false);
+        });
+
+        stdIoBtn.addEventListener('click', exportFixedResults);
+        exportBtn.addEventListener('click', exportDynamicResults);
+
+        delaySlider.addEventListener('input', () => {
+            if (!isRunning) {
+                const delay = parseFloat(delaySlider.value);
+                const totalDegrees = (delay / 5) * 2159;
+                const displayDegrees = totalDegrees % 360;
+                cycleCounter = Math.floor(totalDegrees / 360);
+                clockHand.style.transform = `translate(-50%, -100%) rotate(${displayDegrees}deg)`;
+                cycleCountDisplay.textContent = cycleCounter;
+                lastDegrees = displayDegrees;
+            }
+        });
+    </script>
+</body>
+</html>
