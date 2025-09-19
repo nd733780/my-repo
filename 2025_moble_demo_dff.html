@@ -930,7 +930,7 @@ endmodule</textarea>
             <div>延遲週期: <span class="bit">${lostEdges}</span></div>
         `;
         statusSelect.value = stage;
-        const availableDelays = [0, 1, 5];
+        const availableDelays = [0, 1, 2, 3, 4, 5];
         delaySelect.value = availableDelays.includes(lostEdges) ? lostEdges.toString() : '0';
         updateStatusText(`已從轉盤套用: ${stage}, ${lostEdges} 週期`, '#27ae60');
     }
