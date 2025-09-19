@@ -583,6 +583,7 @@ endmodule</textarea>
     let lastResult = null;
     let lastDegrees = 0;
     let cycleCounter = 0;
+    let isProgrammaticChange = false;
     const duration = 600;
     const colors = {
         '0': '#c0392b',
@@ -895,8 +896,11 @@ endmodule</textarea>
         `;
         statusSelect.value = stage;
         const availableDelays = [0, 1, 2, 3, 4, 5];
-        delaySelect.value = availableDelays.includes(lostEdges) ? lostEdges.toString() : '0';
-        updateStatusText(`已從轉盤套用: ${stage}, ${lostEdges} 週期`, '#27ae60');
+        const selectedDelay = Math.min(lostEdges, 5); // Cap at 5
+        isProgrammaticChange = true;
+        delaySelect.value = selectedDelay.toString();
+        isProgrammaticChange = false;
+        updateStatusText(`已從轉盤套用: ${stage}, ${selectedDelay} 週期`, '#27ae60');
     }
     startBtn.addEventListener('click', startSimulation);
     stopBtn.addEventListener('click', stopSimulation);
@@ -908,7 +912,7 @@ endmodule</textarea>
         }
     });
     delaySelect.addEventListener('change', () => {
-        if (isRunning) {
+        if (isRunning && !isProgrammaticChange) {
             stopSimulation();
             updateStatusText('Delay changed. Please restart.', '#fff');
         }
