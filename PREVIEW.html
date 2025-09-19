@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DFF 模擬器 - 手機版</title>
+  <style>
+    body {
+      font-family: monospace;
+      margin: 0;
+      padding: 10px;
+    }
+    .scroll-block {
+      border: 1px solid #ccc;
+      padding: 10px;
+      margin-top: 10px;
+      max-height: 200px;
+      overflow-y: scroll;
+      background: #f8f8f8;
+    }
+    .result-block {
+      border: 1px solid #aaa;
+      padding: 8px;
+      margin-top: 8px;
+      background: #eef;
+    }
+    button {
+      margin: 5px;
+      padding: 5px 10px;
+    }
+  </style>
+</head>
+<body>
+  <h2>DFF 模擬器 - 手機版</h2>
+
+  <!-- 控制區 -->
+  <div>
+    <button id="start-btn">Start</button>
+    <button id="stop-btn">Stop</button>
+    <button id="dump-btn">Dump</button>
+    <button id="reset-btn">Reset</button>
+    <label>Delay:
+      <input type="range" id="delay-slider" min="0" max="3" step="0.1" value="0.5">
+    </label>
+  </div>
+
+  <!-- 結果區 -->
+  <div id="result-log" class="scroll-block">
+    <p>序列預覽視窗（每行 12 bits）</p>
+  </div>
+
+  <script>
+    let latestResult = null;
+    const resultLog = document.getElementById("result-log");
+    const delaySlider = document.getElementById("delay-slider");
+
+    function simulateSpin() {
+      // 模擬轉盤邏輯 (隨機 Stage + Q 狀態)
+      const stageList = ["Setup", "Hold", "Meta-stable"];
+      const QList = ["0", "1"];
+      const stage = stageList[Math.floor(Math.random() * stageList.length)];
+      const Q = QList[Math.floor(Math.random() * QList.length)];
+      const delay = parseFloat(delaySlider.value);
+
+      latestResult = {
+        delay: delay.toFixed(2),
+        stage: stage,
+        Q: Q
+      };
+
+      // 更新顯示 (覆蓋)
+      resultLog.innerHTML = `
+        <p>序列預覽視窗（每行 12 bits）</p>
+        <div class="result-block">
+          <p><b>最新結果:</b></p>
+          <p>Delay: ${latestResult.delay} round</p>
+          <p>Q 狀態: ${latestResult.Q}</p>
+          <p>Stage: ${latestResult.stage}</p>
+        </div>
+      `;
+    }
+
+    document.getElementById("start-btn").addEventListener("click", simulateSpin);
+    document.getElementById("stop-btn").addEventListener("click", simulateSpin);
+    document.getElementById("dump-btn").addEventListener("click", simulateSpin);
+    document.getElementById("reset-btn").addEventListener("click", () => {
+      latestResult = null;
+      resultLog.innerHTML = `<p>序列預覽視窗（每行 12 bits）</p>`;
+    });
+  </script>
+</body>
+</html>
