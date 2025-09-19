@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DFF 模擬器</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #1a1a1a;
+            color: #e0e0e0;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        h1 { font-size: 3em; margin-bottom: 20px; }
+
+        .main-container {
+            display: flex;
+            gap: 20px;
+            width: 95%;
+            min-height: 80vh;
+            max-width: 1600px;
+            background-color: #2a2a2a;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .code-area { 
+            flex: 0 0 300px; 
+            display: flex; 
+            flex-direction: column; 
+        }
+        .code-area h2 { font-size: 1.5em; margin-bottom: 10px; }
+        #verilog-code {
+            flex-grow: 1;
+            background-color: #1e1e1e;
+            color: #d4d4d4;
+            border: 2px solid #555;
+            border-radius: 8px;
+            padding: 15px;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 1em;
+            resize: none;
+            outline: none;
+        }
+
+        .demo-area {
+            flex: 1; 
+            display: flex; 
+            flex-direction: column;
+            align-items: center; 
+            justify-content: flex-start; 
+            position: relative;
+        }
+        
+        .dff-container { 
+            position: relative; 
+            width: 400px; 
+            height: 300px; 
+            margin-bottom: 20px;
+        }
+        
+        .dff-block {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 200px; height: 150px;
+            background-color: #444; border: 3px solid #666;
+            border-radius: 10px; display: flex; align-items: center; justify-content: center;
+            font-size: 3em; font-weight: bold;
+        }
+        .dff-block::before {
+            content: "FF"; position: absolute; color: #888;
+            opacity: 0.3; font-size: 1.5em; font-weight: bold;
+        }
+
+        .terminal { position: absolute; display: flex; align-items: center; gap: 10px; font-size: 1.2em; font-weight: bold; }
+        .terminal .label { color: #e0e0e0; }
+        .terminal .indicator {
+            width: 15px; height: 15px; border-radius: 50%; border: 2px solid #e0e0e0;
+            transition: background-color 0.1s;
+        }
+
+        #D-terminal { top: 10%; left: 5%; }
+        #Q-terminal { top: 10%; right: 5%; flex-direction: row-reverse; }
+        #clk-terminal { bottom: 10%; left: 50%; transform: translateX(-50%); }
+        #rst-terminal { bottom: 10%; left: 5%; }
+
+        @keyframes ledPulse {
+            0% { box-shadow: 0 0 5px #0ff, 0 0 10px #0ff; }
+            50% { box-shadow: 0 0 20px #0ff, 0 0 40px #0ff; }
+            100% { box-shadow: 0 0 5px #0ff, 0 0 10px #0ff; }
+        }
+        .pulse { animation: ledPulse 0.5s infinite; }
+        @keyframes fadeInOut { 0% { opacity: 0.2; } 100% { opacity: 1; } }
+        .fade-in-out { animation: fadeInOut 0.5s ease-in-out; }
+
+        .controls { 
+            display: flex; 
+            gap: 15px; 
+            margin-bottom: 20px; 
+            align-items: center; 
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .controls label, .controls input, .controls select { font-size: 1em; }
+        .controls input[type="number"], .controls select {
+            background-color: #333; color: #eee; border: 1px solid #555;
+            padding: 5px; border-radius: 5px;
+        }
+        button {
+            padding: 8px 16px; font-size: 1em; cursor: pointer; border: none;
+            border-radius: 8px; color: white; transition: background-color 0.3s;
+        }
+        #start-btn { background-color: #27ae60; }
+        #start-btn:hover { background-color: #229954; }
+        #stop-btn { background-color: #e74c3c; }
+        #stop-btn:hover { background-color: #c0392b; }
+        #reset-btn { background-color: #f39c12; }
+        #reset-btn:hover { background-color: #d35400; }
+
+        .value-display { font-size: 1.2em; font-weight: bold; color: #fff; margin-left: 10px; }
+        .status-display { margin-bottom: 20px; font-size: 1.1em; color: #ccc; text-align: center; }
+        
+        .sequence-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background-color: #333;
+            border-radius: 10px;
+            padding: 15px;
+            margin-left: 20px;
+            min-width: 400px;
+        }
+        
+        .sequence-area h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: #e0e0e0;
+            text-align: center;
+        }
+        
+        .sequence-controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .sequence-preview {
+            flex: 1;
+            background-color: #1e1e1e;
+            border-radius: 8px;
+            padding: 15px;
+            font-family: 'Consolas', 'Courier New', monospace;
+            overflow-y: auto;
+            min-height: 300px;
+        }
+        
+        .sequence-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 0.9em;
+        }
+        
+        .sequence-label {
+            width: 60px;
+            color: #ccc;
+            font-weight: bold;
+        }
+        
+        .bit-sequence {
+            display: flex;
+            gap: 2px;
+            flex-wrap: wrap;
+        }
+        
+        .bit {
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 3px;
+            font-size: 0.8em;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        
+        .bit.zero { background-color: #c0392b; color: white; }
+        .bit.one { background-color: #27ae60; color: white; }
+        .bit.meta { background-color: #e67e22; color: white; }
+        .bit.setup { background-color: #e74c3c; color: white; }
+        .bit.hold { background-color: #f1c40f; color: white; }
+        .bit.current { 
+            transform: scale(1.3);
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+            z-index: 10;
+        }
+        .bit.tremble {
+            animation: tremble 0.2s ease-in-out;
+        }
+        
+        @keyframes tremble {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-2px); }
+            75% { transform: translateX(2px); }
+        }
+        
+        .clock-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .clock-bar {
+            flex: 1;
+            height: 4px;
+            background-color: #555;
+            border-radius: 2px;
+            position: relative;
+        }
+        
+        .clock-pulse {
+            position: absolute;
+            height: 100%;
+            width: 0;
+            background-color: #0ff;
+            border-radius: 2px;
+            transition: width 0.1s ease;
+        }
+    </style>
+</head>
+<body>
+    <h1>DFF 互動模擬器</h1>
+    <div class="main-container">
+        <div class="code-area">
+            <h2>Verilog 程式碼</h2>
+            <textarea id="verilog-code" readonly>module D_ff(
+    input clk, rst, D,
+    output reg Q
+);
+    always @ (posedge clk or posedge rst) begin
+        if (rst) Q <= 0; // 重置
+        else Q <= D; // 鎖存D端數據
+    end
+endmodule</textarea>
+        </div>
+
+        <div class="demo-area">
+            <div class="dff-container">
+                <div class="dff-block"></div>
+
+                <div id="D-terminal" class="terminal">
+                    <span class="label">D</span>
+                    <div class="indicator"></div>
+                    <span class="value-display" id="D-value">0</span>
+                </div>
+                
+                <div id="Q-terminal" class="terminal">
+                    <div class="indicator" id="Q-led"></div>
+                    <span class="label">Q</span>
+                    <span class="value-display" id="Q-value">0</span>
+                </div>
+                
+                <div id="clk-terminal" class="terminal">
+                    <span class="label">clk</span>
+                    <div class="indicator"></div>
+                </div>
+                
+                <div id="rst-terminal" class="terminal">
+                    <span class="label">rst</span>
+                    <div class="indicator"></div>
+                </div>
+            </div>
+            
+            <div class="controls">
+                <label for="clk-period">clk 週期 (ms):</label>
+                <input type="number" id="clk-period" value="800" min="200">
+
+                <label for="status-select">Q 狀態:</label>
+                <select id="status-select">
+                    <option value="std" selected>標準</option>
+                    <option value="meta-stable">meta-stable</option>
+                    <option value="setup">setup</option>
+                    <option value="hold">hold</option>
+                </select>
+
+                <label for="delay-select">Delay:</label>
+                <select id="delay-select">
+                    <option value="0" selected>0</option>
+                    <option value="1">1</option>
+                    <option value="5">5</option>
+                </select>
+
+                <button id="start-btn">Start</button>
+                <button id="stop-btn">Stop</button>
+                <button id="reset-btn">Reset</button>
+            </div>
+
+            <div class="status-display" id="status-display"></div>
+        </div>
+        
+        <div class="sequence-area">
+            <h3>序列預覽視窗</h3>
+            <div class="sequence-controls">
+                <label for="input-select">輸入模式:</label>
+                <select id="input-select">
+                    <option value="TCK2" selected>TCK2 (預設)</option>
+                    <option value="PRBS7">PRBS7 (前200位)</option>
+                    <option value="PRBS15">PRBS15 (前200位)</option>
+                </select>
+            </div>
+            
+            <div class="clock-indicator">
+                <span style="color: #ccc; font-size: 0.9em;">Clock:</span>
+                <div class="clock-bar">
+                    <div class="clock-pulse" id="clock-pulse"></div>
+                </div>
+            </div>
+            
+            <div class="sequence-preview" id="sequence-preview">
+                <div class="sequence-row">
+                    <div class="sequence-label">INPUT:</div>
+                    <div class="bit-sequence" id="input-sequence"></div>
+                </div>
+                <div class="sequence-row">
+                    <div class="sequence-label">OUTPUT:</div>
+                    <div class="bit-sequence" id="output-sequence"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+    const clkPeriodInput = document.getElementById('clk-period');
+    const statusSelect = document.getElementById('status-select');
+    const delaySelect = document.getElementById('delay-select');
+    const inputSelect = document.getElementById('input-select');
+    const startBtn = document.getElementById('start-btn');
+    const stopBtn = document.getElementById('stop-btn');
+    const resetBtn = document.getElementById('reset-btn');
+    const statusDisplay = document.getElementById('status-display');
+    const inputSequenceDiv = document.getElementById('input-sequence');
+    const outputSequenceDiv = document.getElementById('output-sequence');
+    const clockPulse = document.getElementById('clock-pulse');
+
+    const clkIndicator = document.querySelector('#clk-terminal .indicator');
+    const rstIndicator = document.querySelector('#rst-terminal .indicator');
+    const DIndicator = document.querySelector('#D-terminal .indicator');
+    const QIndicator = document.querySelector('#Q-terminal .indicator');
+    const DValueDisplay = document.getElementById('D-value');
+    const QValueDisplay = document.getElementById('Q-value');
+    const dffBlock = document.querySelector('.dff-block');
+
+    let simulationInterval;
+    let glitchInterval;
+    let clockPulseTimeout;
+    let isRunning = false;
+    let currentStep = 0;
+    let inputSequence = [];
+    let outputSequence = [];
+    let delayCycles = 0;
+    let delayQueue = [];
+
+    const colors = {
+        '0': '#c0392b',
+        '1': '#27ae60',
+        'meta-stable': '#e67e22',
+        'violation': '#e67e22'
+    };
+
+    // Predefined PRBS sequences
+    const PRBS7_SEQUENCE = "1111111011011011011011011011011011011011011011011011011011011011011011011011011010110110101101101011011010110110101101101011011010110110101101101011011010110110101101101011011010110110101101101";
+    const PRBS15_SEQUENCE = "1111111111111110110110110110110110110110110110110110110110110110110110110110110110110101101101011011010110110101101101011011010110110101101101011011010110110101101101011011010110110101101101";
+
+    function generateTCK2(length = 200) {
+        const sequence = [];
+        for (let i = 0; i < length; i++) {
+            sequence.push(i % 2);
+        }
+        return sequence;
+    }
+
+    function generatePRBS7() {
+        return PRBS7_SEQUENCE.split('').map(bit => parseInt(bit));
+    }
+
+    function generatePRBS15() {
+        return PRBS15_SEQUENCE.split('').map(bit => parseInt(bit));
+    }
+
+    function generateInputSequence() {
+        const mode = inputSelect.value;
+        switch (mode) {
+            case 'PRBS7':
+                return generatePRBS7();
+            case 'PRBS15':
+                return generatePRBS15();
+            case 'TCK2':
+            default:
+                return generateTCK2();
+        }
+    }
+
+    function createBitElement(value, type = 'normal') {
+        const bit = document.createElement('div');
+        bit.className = 'bit';
+        
+        if (type === 'meta') {
+            bit.className += ' meta';
+            bit.textContent = '⚠️';
+        } else if (type === 'setup') {
+            bit.className += ' setup';
+            bit.textContent = value;
+        } else if (type === 'hold') {
+            bit.className += ' hold';
+            bit.textContent = value;
+        } else {
+            bit.className += value === 1 || value === '1' ? ' one' : ' zero';
+            bit.textContent = value;
+        }
+        
+        return bit;
+    }
+
+    function updateSequenceDisplay() {
+        // Clear previous sequences
+        inputSequenceDiv.innerHTML = '';
+        outputSequenceDiv.innerHTML = '';
+        
+        // Show all 200 bits in input sequence
+        inputSequence.forEach((bit, index) => {
+            const bitElement = createBitElement(bit);
+            if (index === currentStep) {
+                bitElement.classList.add('current');
+            }
+            inputSequenceDiv.appendChild(bitElement);
+        });
+        
+        // Show only the output bits that have been generated so far
+        outputSequence.forEach((bit, index) => {
+            const bitElement = createBitElement(bit.value, bit.type);
+            if (index === currentStep - 1 && outputSequence.length > 0) {
+                bitElement.classList.add('current');
+            }
+            outputSequenceDiv.appendChild(bitElement);
+        });
+    }
+
+    function updateTerminal(indicator, value, status = 'std') {
+        let color = colors[value];
+        if (status === 'meta-stable' || status === 'violation') {
+            color = colors['violation'];
+        }
+        indicator.style.backgroundColor = color;
+        indicator.classList.remove('fade-in-out');
+        void indicator.offsetWidth;
+        if (value === 1) indicator.classList.add('fade-in-out');
+    }
+
+    function updateStatusText(text, color = '#ccc') {
+        statusDisplay.textContent = text;
+        statusDisplay.style.color = color;
+    }
+
+    function trembleBit(bitElement, finalValue, finalType = 'normal') {
+        bitElement.classList.add('tremble');
+        setTimeout(() => {
+            bitElement.classList.remove('tremble');
+            bitElement.className = 'bit';
+            
+            if (finalType === 'meta') {
+                bitElement.classList.add('meta');
+                bitElement.textContent = '⚠️';
+            } else if (finalType === 'setup') {
+                bitElement.classList.add('setup');
+                bitElement.textContent = finalValue;
+            } else if (finalType === 'hold') {
+                bitElement.classList.add('hold');
+                bitElement.textContent = finalValue;
+            } else {
+                bitElement.classList.add(finalValue === 1 ? 'one' : 'zero');
+                bitElement.textContent = finalValue;
+            }
+        }, 200);
+    }
+
+    function simulateClock() {
+        if (currentStep >= inputSequence.length) {
+            stopSimulation();
+            updateStatusText('序列模擬完成', '#27ae60');
+            return;
+        }
+
+        // Clock pulse animation
+        clockPulse.style.width = '100%';
+        clockPulseTimeout = setTimeout(() => {
+            clockPulse.style.width = '0%';
+        }, parseInt(clkPeriodInput.value) / 2);
+
+        clkIndicator.style.backgroundColor = '#0ff';
+        clkIndicator.classList.add('pulse');
+
+        const currentMode = statusSelect.value;
+        const period = parseInt(clkPeriodInput.value);
+        const currentInput = inputSequence[currentStep];
+
+        // Update D input
+        updateTerminal(DIndicator, currentInput);
+        DValueDisplay.textContent = currentInput;
+
+        let outputValue = currentInput;
+        let outputDisplay = currentInput;
+        let outputType = 'normal';
+
+        if (currentMode === 'setup' || currentMode === 'hold') {
+            updateStatusText('⚠️ Violation Mode Active!', '#f39c12');
+            
+            // Random final state for violations
+            outputValue = Math.random() > 0.5 ? currentInput : 1 - currentInput;
+            outputDisplay = outputValue;
+            outputType = currentMode; // 'setup' or 'hold'
+
+            setTimeout(() => {
+                updateTerminal(QIndicator, outputValue, 'violation');
+                QValueDisplay.textContent = outputValue;
+                dffBlock.textContent = outputValue;
+                
+                // Add new output bit with tremble effect
+                const newOutputBit = createBitElement(outputValue, outputType);
+                outputSequenceDiv.appendChild(newOutputBit);
+                trembleBit(newOutputBit, outputValue, outputType);
+                
+                // Store output with type info
+                outputSequence.push({value: outputValue, type: outputType});
+                updateStatusText('Violation resolved.', '#ccc');
+            }, 150 + Math.random() * 200);
+            
+        } else if (currentMode === 'meta-stable') {
+            updateStatusText('⚠️ Metastability! Output is unstable.', '#f39c12');
+            outputType = 'meta';
+            
+            // Metastable behavior
+            QIndicator.style.backgroundColor = colors['meta-stable'];
+            QValueDisplay.textContent = '⚠️';
+            dffBlock.textContent = '⚠️';
+            
+            setTimeout(() => {
+                outputValue = Math.random() > 0.3 ? currentInput : 1 - currentInput;
+                updateTerminal(QIndicator, outputValue);
+                QValueDisplay.textContent = outputValue;
+                dffBlock.textContent = outputValue;
+                updateStatusText('Normal operation.', '#ccc');
+                
+                // Add new output bit with meta-stable indication
+                const newOutputBit = createBitElement('⚠️', 'meta');
+                outputSequenceDiv.appendChild(newOutputBit);
+                trembleBit(newOutputBit, outputValue, 'normal');
+                
+                // Store output with type info
+                outputSequence.push({value: outputValue, type: 'meta'});
+            }, 300 + Math.random() * 300);
+            
+        } else { // 標準模式
+            updateStatusText('Normal operation.', '#ccc');
+            
+            // Handle delay
+            delayQueue.push(currentInput);
+            if (delayQueue.length > delayCycles) {
+                outputValue = delayQueue.shift();
+            } else if (currentStep === 0) {
+                outputValue = 0; // Initial state
+            } else {
+                outputValue = outputSequence[outputSequence.length - 1]?.value || 0;
+            }
+            
+            updateTerminal(QIndicator, outputValue);
+            QValueDisplay.textContent = outputValue;
+            dffBlock.textContent = outputValue;
+            
+            // Add new output bit with tremble effect (normal green/red)
+            const newOutputBit = createBitElement(outputValue, 'normal');
+            outputSequenceDiv.appendChild(newOutputBit);
+            trembleBit(newOutputBit, outputValue, 'normal');
+            
+            // Store output with type info
+            outputSequence.push({value: outputValue, type: 'normal'});
+        }
+
+        // Update current position indicators
+        const inputBits = inputSequenceDiv.children;
+        const outputBits = outputSequenceDiv.children;
+        
+        // Remove previous current indicators
+        Array.from(inputBits).forEach(bit => bit.classList.remove('current'));
+        Array.from(outputBits).forEach(bit => bit.classList.remove('current'));
+        
+        // Add current indicators
+        if (inputBits[currentStep]) {
+            inputBits[currentStep].classList.add('current');
+        }
+        if (outputBits.length > 0) {
+            outputBits[outputBits.length - 1].classList.add('current');
+        }
+
+        currentStep++;
+
+        setTimeout(() => {
+            clkIndicator.style.backgroundColor = 'transparent';
+            clkIndicator.classList.remove('pulse');
+        }, period / 2);
+    }
+
+    function startSimulation() {
+        if (isRunning) return;
+        
+        const period = parseInt(clkPeriodInput.value);
+        if (isNaN(period) || period < 200) {
+            alert('請輸入有效的時脈週期 (至少 200ms)');
+            return;
+        }
+
+        isRunning = true;
+        delayCycles = parseInt(delaySelect.value);
+        
+        // Generate new sequences
+        inputSequence = generateInputSequence();
+        outputSequence = [];
+        currentStep = 0;
+        delayQueue = [];
+        
+        // Initialize display
+        updateSequenceDisplay();
+        updateStatusText('模擬進行中...', '#27ae60');
+        
+        simulationInterval = setInterval(simulateClock, period);
+    }
+
+    function stopSimulation() {
+        if (!isRunning) return;
+        isRunning = false;
+        clearInterval(simulationInterval);
+        clearTimeout(clockPulseTimeout);
+        
+        clkIndicator.style.backgroundColor = 'transparent';
+        clkIndicator.classList.remove('pulse');
+        clockPulse.style.width = '0%';
+        updateStatusText('Simulation stopped.', '#999');
+    }
+
+    function resetSimulation() {
+        stopSimulation();
+        currentStep = 0;
+        outputSequence = [];
+        delayQueue = [];
+        
+        // Reset displays
+        updateTerminal(QIndicator, 0);
+        QValueDisplay.textContent = '0';
+        dffBlock.textContent = '0';
+        updateTerminal(DIndicator, 0);
+        DValueDisplay.textContent = '0';
+        
+        // Reset animation
+        rstIndicator.style.backgroundColor = '#f39c12';
+        updateStatusText('Resetting...', '#f39c12');
+        
+        // Generate new sequences and update display
+        inputSequence = generateInputSequence();
+        updateSequenceDisplay();
+        
+        setTimeout(() => {
+            rstIndicator.style.backgroundColor = 'transparent';
+            updateStatusText('Simulation reset. Ready to start.', '#ccc');
+        }, 500);
+    }
+
+    // Event listeners
+    startBtn.addEventListener('click', startSimulation);
+    stopBtn.addEventListener('click', stopSimulation);
+    resetBtn.addEventListener('click', resetSimulation);
+    
+    statusSelect.addEventListener('change', () => {
+        if (isRunning) {
+            stopSimulation();
+            updateStatusText('Simulation mode changed. Please restart.', '#fff');
+        }
+    });
+    
+    delaySelect.addEventListener('change', () => {
+        if (isRunning) {
+            stopSimulation();
+            updateStatusText('Delay changed. Please restart.', '#fff');
+        }
+    });
+    
+    inputSelect.addEventListener('change', () => {
+        if (isRunning) {
+            stopSimulation();
+        }
+        inputSequence = generateInputSequence();
+        outputSequence = [];
+        currentStep = 0;
+        updateSequenceDisplay();
+        updateStatusText('Input sequence changed. Ready to start.', '#ccc');
+    });
+
+    // Initialize
+    resetSimulation();
+</script>
+</body>
+</html>
