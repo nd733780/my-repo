@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>爬梯遊戲</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: Arial, sans-serif;
+        }
+        
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            max-width: 95%;
+            overflow-x: auto;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        
+        .controls {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        button {
+            padding: 12px 30px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 0 10px;
+            transition: all 0.3s;
+        }
+        
+        .start-btn {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .start-btn:hover {
+            background: #45a049;
+            transform: scale(1.05);
+        }
+        
+        .reset-btn {
+            background: #f44336;
+            color: white;
+        }
+        
+        .reset-btn:hover {
+            background: #da190b;
+            transform: scale(1.05);
+        }
+        
+        .game-area {
+            position: relative;
+            width: 800px;
+            height: 3000px;
+            margin: 0 auto;
+        }
+        
+        .vertical-line {
+            position: absolute;
+            width: 3px;
+            height: 100%;
+            background: #333;
+            transition: all 0.3s;
+        }
+        
+        .vertical-line.tracing {
+            width: 6px;
+            box-shadow: 0 0 20px currentColor;
+            filter: brightness(1.5);
+        }
+        
+        .horizontal-line {
+            position: absolute;
+            height: 2px;
+            background: #666;
+            width: 200px;
+        }
+        
+        .option-box {
+            position: absolute;
+            padding: 12px 20px;
+            background: #f0f0f0;
+            border: 3px solid #333;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.3s;
+            user-select: none;
+        }
+        
+        .option-box:hover {
+            background: #e0e0e0;
+            transform: scale(1.1);
+        }
+        
+        .option-box.selected {
+            background: #4CAF50;
+            color: white;
+            border-color: #2E7D32;
+        }
+        
+        .top-option {
+            top: -50px;
+        }
+        
+        .bottom-option {
+            bottom: -50px;
+        }
+        
+        .tracer {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #fff, transparent);
+            box-shadow: 0 0 30px currentColor;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .tracer.active {
+            opacity: 0.8;
+            animation: tremble 0.1s infinite, pulse 1s infinite;
+        }
+        
+        @keyframes tremble {
+            0%, 100% { transform: translate(-2px, 0); }
+            25% { transform: translate(2px, 1px); }
+            50% { transform: translate(-1px, -1px); }
+            75% { transform: translate(1px, -2px); }
+        }
+        
+        @keyframes pulse {
+            0%, 100% { 
+                box-shadow: 0 0 20px currentColor;
+            }
+            50% { 
+                box-shadow: 0 0 40px currentColor;
+            }
+        }
+        
+        .result-box {
+            text-align: center;
+            margin-top: 20px;
+            padding: 15px;
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: bold;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 爬梯遊戲</h1>
+        <div class="controls">
+            <button class="reset-btn" onclick="resetGame()">🔄 重置</button>
+        </div>
+        <div class="game-area" id="gameArea"></div>
+        <div class="result-box" id="resultBox"></div>
+    </div>
+
+    <script>
+        const gameArea = document.getElementById('gameArea');
+        const resultBox = document.getElementById('resultBox');
+        const numVerticalLines = 4;
+        const numHorizontalLines = 241;
+        const gameHeight = 3000;
+        const spacing = 200;
+        
+        const topOptions = ['2', '7', '8', '9'];
+        const bottomOptions = ['x', 'x', 'x', 'o'];
+        const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A'];
+        
+        let horizontalLines = [];
+        let selectedLine = null;
+        let tracers = [];
+        
+        function createGame() {
+            gameArea.innerHTML = '';
+            horizontalLines = [];
+            tracers = [];
+            
+            // 創建4條垂直線
+            for (let i = 0; i < numVerticalLines; i++) {
+                const vLine = document.createElement('div');
+                vLine.className = 'vertical-line';
+                vLine.style.left = (i * spacing + 100) + 'px';
+                vLine.style.background = colors[i];
+                vLine.id = 'vline-' + i;
+                gameArea.appendChild(vLine);
+                
+                // 創建追蹤器
+                const tracer = document.createElement('div');
+                tracer.className = 'tracer';
+                tracer.style.color = colors[i];
+                tracer.id = 'tracer-' + i;
+                gameArea.appendChild(tracer);
+                tracers.push(tracer);
+            }
+            
+            // 創建頂部選項
+            for (let i = 0; i < numVerticalLines; i++) {
+                const topBox = document.createElement('div');
+                topBox.className = 'option-box top-option';
+                topBox.textContent = topOptions[i];
+                topBox.style.left = (i * spacing + 70) + 'px';
+                topBox.style.borderColor = colors[i];
+                topBox.onclick = () => startTracing(i);
+                gameArea.appendChild(topBox);
+            }
+            
+            // 創建底部選項
+            for (let i = 0; i < numVerticalLines; i++) {
+                const bottomBox = document.createElement('div');
+                bottomBox.className = 'option-box bottom-option';
+                bottomBox.textContent = bottomOptions[i];
+                bottomBox.style.left = (i * spacing + 70) + 'px';
+                bottomBox.style.borderColor = colors[i];
+                gameArea.appendChild(bottomBox);
+            }
+            
+            // 創建241條橫線
+            const lineSpacing = gameHeight / (numHorizontalLines + 1);
+            
+            for (let i = 1; i <= numHorizontalLines; i++) {
+                const hLine = document.createElement('div');
+                hLine.className = 'horizontal-line';
+                
+                const startLine = Math.floor(Math.random() * (numVerticalLines - 1));
+                const startX = startLine * spacing + 100;
+                const y = i * lineSpacing;
+                
+                hLine.style.top = y + 'px';
+                hLine.style.left = startX + 'px';
+                hLine.style.width = spacing + 'px';
+                
+                horizontalLines.push({
+                    y: y,
+                    startLine: startLine,
+                    endLine: startLine + 1
+                });
+                
+                gameArea.appendChild(hLine);
+            }
+            
+            horizontalLines.sort((a, b) => a.y - b.y);
+        }
+        
+        function startTracing(lineIndex) {
+            if (selectedLine !== null) return;
+            
+            selectedLine = lineIndex;
+            resultBox.style.display = 'none';
+            
+            // 標記選中的頂部選項
+            const topBoxes = document.querySelectorAll('.top-option');
+            topBoxes.forEach((box, i) => {
+                box.classList.toggle('selected', i === lineIndex);
+            });
+            
+            // 開始追蹤動畫
+            const tracer = tracers[lineIndex];
+            const vLine = document.getElementById('vline-' + lineIndex);
+            
+            tracer.classList.add('active');
+            vLine.classList.add('tracing');
+            
+            let currentLine = lineIndex;
+            let currentY = 0;
+            let step = 0;
+            const totalSteps = gameHeight / 5;
+            
+            const interval = setInterval(() => {
+                currentY += 5;
+                step++;
+                
+                // 更新追蹤器位置
+                tracer.style.left = (currentLine * spacing + 90) + 'px';
+                tracer.style.top = currentY + 'px';
+                
+                // 檢查是否碰到橫線
+                for (let line of horizontalLines) {
+                    if (Math.abs(currentY - line.y) < 5) {
+                        if (currentLine === line.startLine) {
+                            currentLine = line.endLine;
+                            break;
+                        } else if (currentLine === line.endLine) {
+                            currentLine = line.startLine;
+                            break;
+                        }
+                    }
+                }
+                
+                // 到達底部
+                if (currentY >= gameHeight) {
+                    clearInterval(interval);
+                    tracer.classList.remove('active');
+                    vLine.classList.remove('tracing');
+                    showResult(currentLine);
+                    selectedLine = null;
+                }
+            }, 20);
+        }
+        
+        function showResult(finalLine) {
+            resultBox.textContent = `結果：${bottomOptions[finalLine]}`;
+            resultBox.style.display = 'block';
+            resultBox.style.background = bottomOptions[finalLine] === 'o' ? '#d4edda' : '#f8d7da';
+            resultBox.style.borderColor = bottomOptions[finalLine] === 'o' ? '#28a745' : '#dc3545';
+        }
+        
+        function resetGame() {
+            selectedLine = null;
+            resultBox.style.display = 'none';
+            
+            const topBoxes = document.querySelectorAll('.top-option');
+            topBoxes.forEach(box => box.classList.remove('selected'));
+            
+            tracers.forEach(tracer => {
+                tracer.classList.remove('active');
+            });
+            
+            document.querySelectorAll('.vertical-line').forEach(line => {
+                line.classList.remove('tracing');
+            });
+            
+            createGame();
+        }
+        
+        // 初始化遊戲
+        createGame();
+    </script>
+</body>
+</html>
