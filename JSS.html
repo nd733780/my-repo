@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>韓文拼音/單字查找器</title>
+    <style>
+        /* --- 頁面樣式設計 --- */
+        :root {
+            --primary-color: #6c5ce7;
+            --bg-color: #f5f6fa;
+            --card-bg: #ffffff;
+            --text-color: #2d3436;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 500px;
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: var(--primary-color);
+            margin-bottom: 20px;
+        }
+
+        .search-box {
+            position: relative;
+            margin-bottom: 30px;
+        }
+
+        input {
+            width: 100%;
+            padding: 15px;
+            padding-right: 50px;
+            font-size: 16px;
+            border: 2px solid #dfe6e9;
+            border-radius: 12px;
+            box-sizing: border-box;
+            transition: border-color 0.3s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        /* --- 結果卡片樣式 --- */
+        .result-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #fff;
+            border: 1px solid #eee;
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 10px;
+            transition: transform 0.2s;
+        }
+
+        .result-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            border-color: var(--primary-color);
+        }
+
+        .word-info h3 {
+            margin: 0;
+            font-size: 22px;
+            color: var(--primary-color);
+        }
+
+        .word-info p {
+            margin: 5px 0 0;
+            color: #636e72;
+            font-size: 14px;
+        }
+
+        .chinese-mean {
+            display: block;
+            margin-top: 5px;
+            font-weight: bold;
+            color: #2d3436;
+            font-size: 16px;
+        }
+
+        .audio-btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 18px;
+            transition: background 0.3s;
+        }
+
+        .audio-btn:hover {
+            background: #5649c0;
+        }
+
+        .no-result {
+            text-align: center;
+            color: #b2bec3;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🇰🇷 韓文快查</h1>
+    <div class="search-box">
+        <input type="text" id="searchInput" placeholder="輸入韓文 或 羅馬拼音 (如: annyeong)...">
+    </div>
+    
+    <div id="resultsList">
+        <div class="no-result">請輸入文字開始搜尋...</div>
+    </div>
+</div>
+
+<script>
+    // --- 1. 內建資料庫 (模擬數據) ---
+    // 實際應用中，這些資料通常來自後端 API，這裡我們先建立一個小型字典供測試
+    const vocabulary = [
+        { hangul: "안녕하세요", rom: "annyeonghaseyo", cn: "你好" },
+        { hangul: "감사합니다", rom: "gamsahamnida", cn: "謝謝 (敬語)" },
+        { hangul: "사랑해요", rom: "saranghaeyo", cn: "我愛你" },
+        { hangul: "미안합니다", rom: "mianhamnida", cn: "對不起" },
+        { hangul: "네", rom: "ne", cn: "是 / 好的" },
+        { hangul: "아니요", rom: "aniyo", cn: "不是" },
+        { hangul: "친구", rom: "chingu", cn: "朋友" },
+        { hangul: "오빠", rom: "oppa", cn: "哥哥 (女生稱呼)" },
+        { hangul: "언니", rom: "eonni", cn: "姊姊 (女生稱呼)" },
+        { hangul: "맛있어요", rom: "masisseoyo", cn: "好吃" },
+        { hangul: "얼마예요", rom: "eolmayeyo", cn: "多少錢？" },
+        { hangul: "화이팅", rom: "hwaiting", cn: "加油 (Fighting)" },
+        { hangul: "대박", rom: "daebak", cn: "大發 / 厲害 / 讚" }
+    ];
+
+    const searchInput = document.getElementById('searchInput');
+    const resultsList = document.getElementById('resultsList');
+
+    // --- 2. 搜尋邏輯 ---
+    searchInput.addEventListener('input', (e) => {
+        const query = e.target.value.toLowerCase().trim();
+        resultsList.innerHTML = ''; // 清空舊結果
+
+        if (query.length === 0) {
+            resultsList.innerHTML = '<div class="no-result">請輸入文字開始搜尋...</div>';
+            return;
+        }
+
+        // 過濾資料：比對韓文 或 羅馬拼音 (包含部分符合)
+        const filtered = vocabulary.filter(item => 
+            item.hangul.includes(query) || 
+            item.rom.toLowerCase().includes(query)
+        );
+
+        if (filtered.length === 0) {
+            resultsList.innerHTML = '<div class="no-result">找不到相關單字，試試其他拼音？</div>';
+        } else {
+            filtered.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'result-item';
+                div.innerHTML = `
+                    <div class="word-info">
+                        <h3>${item.hangul}</h3>
+                        <p>${item.rom}</p>
+                        <span class="chinese-mean">${item.cn}</span>
+                    </div>
+                    <button class="audio-btn" onclick="speak('${item.hangul}')">🔊</button>
+                `;
+                resultsList.appendChild(div);
+            });
+        }
+    });
+
+    // --- 3. 發音功能 (使用 Web Speech API) ---
+    function speak(text) {
+        if ('speechSynthesis' in window) {
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'ko-KR'; // 設定語言為韓文
+            utterance.rate = 0.9;     // 語速稍微慢一點點，比較清楚
+            window.speechSynthesis.speak(utterance);
+        } else {
+            alert("您的瀏覽器不支援發音功能");
+        }
+    }
+</script>
+
+</body>
+</html>
